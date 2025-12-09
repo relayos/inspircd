@@ -16,8 +16,8 @@ Define which WEBIRC flags should be converted to metadata keys using `<webircmet
 
 ```xml
 <webircmeta key="connection/hash">
-<webircmeta key="location/country-code">
-<webircmeta key="location/country-name">
+<webircmeta key="geo/country-code">
+<webircmeta key="geo/country">
 ```
 
 Each `<webircmeta>` block requires a `key` attribute specifying the flag/metadata key name. The same key name is used for both the WEBIRC flag and the resulting IRCv3 metadata.
@@ -30,7 +30,7 @@ The gateway must be configured to trust these flags. Add them to the `trustedfla
 <gateway type="webirc"
          mask="127.0.0.1"
          password="secret"
-         trustedflags="connection/hash location/country-code location/country-name">
+         trustedflags="connection/hash geo/country-code geo/country">
 ```
 
 Set `trustedflags="*"` to trust all flags (not recommended for production).
@@ -69,7 +69,7 @@ METADATA user location/country-name * :United States
 | Key | Source | Description |
 |-----|--------|-------------|
 | `connection/hash` | webircgateway-connectionhash plugin | Salted hash of client IP |
-| `location/country-code` | webircgateway-geoip plugin | ISO 3166-1 alpha-2 country code |
-| `location/country-name` | webircgateway-geoip plugin | English country name |
+| `geo/country-code` | webircgateway-geoip plugin | ISO 3166-1 alpha-2 country code (falls back to `AQ`) |
+| `geo/country` | webircgateway-geoip plugin | English country name (falls back to `Antarctica`) |
 | `user/gender` | Client query param | User's gender |
 | `user/interested-in` | Client query param | User's preference |
