@@ -21,7 +21,7 @@
 #include "timeutils.h"
 #include "xline.h"
 #include "extension.h"
-#include "tarpit_metrics.h"
+#include "modules/tarpit_metrics.h"
 #include <array>
 #include <algorithm>
 #include <cerrno>
