@@ -119,14 +119,13 @@ public:
 		}
 	}
 
-	void OnUserConnect(LocalUser*, bool) override
+	void OnUserConnect(LocalUser*) override
 	{
 		++connects_total;
 	}
 
-	void OnUserDisconnect(LocalUser*, const std::string& reason) override
+	void OnUserDisconnect(LocalUser*) override
 	{
-		(void)reason;
 		++disconnects_total;
 	}
 
