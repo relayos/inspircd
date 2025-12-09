@@ -100,11 +100,6 @@ public:
 	{
 	}
 
-	Version GetVersion() override
-	{
-		return Version("Prometheus-style metrics over httpd");
-	}
-
 	void ReadConfig(ConfigStatus&) override
 	{
 		const auto& tag = ServerInstance->Config->ConfValue("httpmetrics");
