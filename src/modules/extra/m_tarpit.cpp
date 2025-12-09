@@ -21,6 +21,7 @@
 #include "timeutils.h"
 #include "xline.h"
 #include "extension.h"
+#include "tarpit_metrics.h"
 #include <array>
 #include <algorithm>
 #include <cerrno>
@@ -250,6 +251,7 @@ private:
 	std::deque<time_t> inspectedhistory;
 
 	CommandTarpit command;
+	MetricsProvider metricsprovider;
 	std::array<LevelSettings, std::size(presets)> levelsettings;
 	double interactionlowweight = 0.0;
 	double interactionspammyweight = 0.0;
@@ -262,11 +264,80 @@ private:
 	double feedbacknegative = 10.0;
 	const double feedbackmaxscore = 100.0;
 
+	friend class TarpitMetricsService;
+
+	class MetricsProvider final
+		: public TarpitMetricsProvider
+	{
+		ModuleTarpit& parent;
+
+	public:
+		MetricsProvider(ModuleTarpit* mod)
+			: TarpitMetricsProvider(mod)
+			, parent(*mod)
+		{
+		}
+
+		bool GetStats(TarpitMetrics& out, unsigned long window = 0) override
+		{
+			out = {};
+			out.total_processed = parent.totalprocessed;
+			out.total_delayed = parent.totaldelayed;
+			out.total_dropped = parent.totaldropped;
+			out.total_delay = parent.totaldelay;
+			out.current_level = parent.currentlevel;
+
+			time_t cutoff = (window ? (ServerInstance->Time() - static_cast<time_t>(window)) : 0);
+			unsigned long long windowdelays = 0;
+			unsigned long long windowdrops = 0;
+			unsigned long long windowdelaytotal = 0;
+			unsigned long long windowprocessed = 0;
+
+			for (auto it = parent.recentevents.rbegin(); it != parent.recentevents.rend(); ++it)
+			{
+				if (cutoff && it->ts < cutoff)
+					break;
+				if (it->dropped)
+					++windowdrops;
+				else
+				{
+					++windowdelays;
+					windowdelaytotal += it->delay;
+				}
+			}
+
+			if (window)
+			{
+				for (auto it = parent.inspectedhistory.rbegin(); it != parent.inspectedhistory.rend(); ++it)
+				{
+					if (cutoff && *it < cutoff)
+						break;
+					++windowprocessed;
+				}
+			}
+
+			if (!window)
+			{
+				windowprocessed = out.total_processed;
+				windowdelays = out.total_delayed;
+				windowdrops = out.total_dropped;
+				windowdelaytotal = out.total_delay;
+			}
+
+			out.window_processed = windowprocessed;
+			out.window_delayed = windowdelays;
+			out.window_dropped = windowdrops;
+			out.window_delay = windowdelaytotal;
+			return true;
+		}
+	};
+
 public:
 	ModuleTarpit()
 		: Module(VF_VENDOR, "Detects duplicate private-message spam using k-mer fingerprints.")
 		, userstats(this, "tarpit-stats", ExtensionType::USER, true)
 		, command(*this)
+		, metricsprovider(this)
 	{
 		for (unsigned int i = 0; i < levelsettings.size(); ++i)
 			levelsettings[i] = BuildDefaultSettings(i);
