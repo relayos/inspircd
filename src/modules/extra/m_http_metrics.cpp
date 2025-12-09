@@ -26,6 +26,7 @@
  */
 
 #include "inspircd.h"
+#include "inspircd.h"
 #include "modules/httpd.h"
 #include "message.h"
 #include "modules.h"
