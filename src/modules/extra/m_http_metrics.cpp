@@ -113,7 +113,7 @@ public:
 		std::string item;
 		while (std::getline(ss, item, ','))
 		{
-			irc::trim(item);
+			insp::trim(item);
 			if (!item.empty())
 				metadata_value_keys.insert(item);
 		}
