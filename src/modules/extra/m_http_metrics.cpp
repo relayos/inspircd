@@ -33,6 +33,15 @@
 #include "modules/ircv3_metadata.h"
 #include "modechange.h"
 
+#include <algorithm>
+#include <cctype>
+#include <initializer_list>
+#include <map>
+#include <set>
+#include <sstream>
+#include <string>
+#include <vector>
+
 #include <initializer_list>
 #include <map>
 #include <set>
@@ -91,14 +100,14 @@ private:
 	std::map<std::pair<std::string, std::string>, uint64_t> metadata_value_counts; // key: (key, value)
 
 public:
-	ModuleHttpMetrics()
-		: Module(VF_VENDOR, "Expose Prometheus-style metrics over the InspIRCd httpd module.")
-		, HTTPRequestEventListener(this)
-		, api(this)
-		, IRCv3::Metadata::EventListener(this)
-		, tarpit(this, "tarpit_metrics")
-	{
-	}
+		ModuleHttpMetrics()
+			: Module(VF_VENDOR, "Expose Prometheus-style metrics over the InspIRCd httpd module.")
+			, HTTPRequestEventListener(this)
+			, IRCv3::Metadata::EventListener(this)
+			, api(this)
+			, tarpit(this, "tarpit_metrics")
+		{
+		}
 
 	void ReadConfig(ConfigStatus&) override
 	{
@@ -108,16 +117,16 @@ public:
 		channel_metrics = tag->getBool("channel_metrics", true);
 
 		metadata_value_keys.clear();
-		const std::string rawkeys = tag->getString("metadata_value_keys");
-		std::stringstream ss(rawkeys);
-		std::string item;
-		while (std::getline(ss, item, ','))
-		{
-			insp::trim(item);
-			if (!item.empty())
-				metadata_value_keys.insert(item);
+			const std::string rawkeys = tag->getString("metadata_value_keys");
+			std::stringstream ss(rawkeys);
+			std::string item;
+			while (std::getline(ss, item, ','))
+			{
+				TrimInPlace(item);
+				if (!item.empty())
+					metadata_value_keys.insert(item);
+			}
 		}
-	}
 
 	void OnUserConnect(LocalUser*) override
 	{
@@ -398,6 +407,13 @@ private:
 		out.push_back(' ');
 		out.append(ConvToStr(value));
 		out.push_back('\n');
+	}
+
+	void TrimInPlace(std::string& s)
+	{
+		auto notspace = [](unsigned char c) { return !std::isspace(c); };
+		s.erase(s.begin(), std::find_if(s.begin(), s.end(), notspace));
+		s.erase(std::find_if(s.rbegin(), s.rend(), notspace).base(), s.end());
 	}
 };
 
