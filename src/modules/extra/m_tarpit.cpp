@@ -31,11 +31,8 @@
 #include <limits>
 #include <vector>
 
-#ifdef USE_SYSTEM_UTFCPP
-# include <utf8cpp/utf8.h>
-#else
-# include <utfcpp/core.h>
-#endif
+// Use vendored utfcpp
+#include "utfcpp/unchecked.h"
 
 namespace
 {
@@ -250,7 +247,7 @@ private:
 	bool warmupannounced = false;
 	std::deque<time_t> inspectedhistory;
 
-	class MetricsProvider
+	class MetricsProvider final
 		: public TarpitMetricsProvider
 	{
 		ModuleTarpit& parent;
@@ -1411,12 +1408,11 @@ private:
 
 		try
 		{
-			utf8::iterator<std::string::const_iterator> it(input.begin(), input.begin(), input.end());
-			utf8::iterator<std::string::const_iterator> itend(input.end(), input.begin(), input.end());
+			auto it = input.begin();
+			auto itend = input.end();
 			while (it != itend)
 			{
-				uint32_t cp = *it;
-				++it;
+				uint32_t cp = utf8::unchecked::next(it);
 
 				if (IsZeroWidth(cp))
 					continue;
@@ -1430,10 +1426,10 @@ private:
 				if (!IsAllowedChar(cp))
 					continue;
 
-				utf8::append(cp, std::back_inserter(normalized));
+				utf8::unchecked::append(cp, std::back_inserter(normalized));
 			}
 		}
-		catch (const utf8::exception&)
+		catch (const std::exception&)
 		{
 			for (unsigned char c : input)
 			{
