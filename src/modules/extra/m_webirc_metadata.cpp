@@ -95,12 +95,16 @@ public:
 			flagsext.Set(user, new WebIRC::FlagMap(std::move(filtered)));
 	}
 
-	void OnUserConnect(LocalUser* user, bool) override
+	void OnUserConnect(User* user, bool) override
 	{
 		if (!metaapi)
 			return;
 
-		WebIRC::FlagMap* flags = flagsext.Get(user);
+		LocalUser* localuser = IS_LOCAL(user);
+		if (!localuser)
+			return;
+
+		WebIRC::FlagMap* flags = flagsext.Get(localuser);
 		if (!flags)
 			return;
 
@@ -110,12 +114,12 @@ public:
 			if (it == flags->end() || it->second.empty())
 				continue;
 
-			metaapi->SetKey(user, key, it->second);
+			metaapi->SetKey(localuser, key, it->second);
 			ServerInstance->Logs.Debug(MODNAME, "Set metadata {}={} for user {}",
-				key, it->second, user->uuid);
+				key, it->second, localuser->uuid);
 		}
 
-		flagsext.Unset(user);
+		flagsext.Unset(localuser);
 	}
 
 	void OnUserDisconnect(LocalUser* user) override
