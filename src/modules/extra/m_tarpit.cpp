@@ -250,23 +250,7 @@ private:
 	bool warmupannounced = false;
 	std::deque<time_t> inspectedhistory;
 
-	CommandTarpit command;
-	MetricsProvider metricsprovider;
-	std::array<LevelSettings, std::size(presets)> levelsettings;
-	double interactionlowweight = 0.0;
-	double interactionspammyweight = 0.0;
-	double interactionpenaltyweight = 0.0;
-	unsigned int interactionminsignals = 2;
-	double interactionexponent = 1.0;
-	unsigned long trustdecay = 0;
-	double trustweight = 0.0;
-	double feedbackpositive = 10.0;
-	double feedbacknegative = 10.0;
-	const double feedbackmaxscore = 100.0;
-
-	friend class TarpitMetricsService;
-
-	class MetricsProvider final
+	class MetricsProvider
 		: public TarpitMetricsProvider
 	{
 		ModuleTarpit& parent;
@@ -332,6 +316,21 @@ private:
 		}
 	};
 
+	CommandTarpit command;
+	MetricsProvider metricsprovider;
+	std::array<LevelSettings, std::size(presets)> levelsettings;
+	double interactionlowweight = 0.0;
+	double interactionspammyweight = 0.0;
+	double interactionpenaltyweight = 0.0;
+	unsigned int interactionminsignals = 2;
+	double interactionexponent = 1.0;
+	unsigned long trustdecay = 0;
+	double trustweight = 0.0;
+	double feedbackpositive = 10.0;
+	double feedbacknegative = 10.0;
+	const double feedbackmaxscore = 100.0;
+
+	friend class TarpitMetricsService;
 public:
 	ModuleTarpit()
 		: Module(VF_VENDOR, "Detects duplicate private-message spam using k-mer fingerprints.")

@@ -42,11 +42,6 @@
 #include <string>
 #include <vector>
 
-#include <initializer_list>
-#include <map>
-#include <set>
-#include <sstream>
-
 namespace
 {
 	std::string EscapeLabel(const std::string& in)
@@ -218,7 +213,9 @@ public:
 			return MOD_RES_PASSTHRU;
 
 		std::string body = BuildMetrics();
-		HTTPDocumentResponse response(this, request, body);
+		std::stringstream ss;
+		ss << body;
+		HTTPDocumentResponse response(this, request, &ss, 200);
 		response.headers.SetHeader("Content-Type", "text/plain; version=0.0.4");
 		api->SendResponse(response);
 		return MOD_RES_DENY;
