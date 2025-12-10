@@ -21,6 +21,7 @@
 /// $ModDepends: core 4
 
 #include "inspircd.h"
+#include "extension.h"
 #include "modules/ircv3_metadata.h"
 #include "modules/webirc.h"
 
@@ -31,12 +32,14 @@ class ModuleWebIRCMetadata final
 private:
 	IRCv3::Metadata::API metaapi;
 	std::vector<std::string> keys;
+	SimpleExtItem<WebIRC::FlagMap> flagsext;
 
 public:
 	ModuleWebIRCMetadata()
 		: Module(VF_VENDOR | VF_OPTCOMMON, "Sets IRCv3 metadata keys from WEBIRC flags.")
 		, WebIRC::EventListener(this)
 		, metaapi(this)
+		, flagsext(this, "webirc-metadata-flags", ExtensionType::USER)
 	{
 	}
 
@@ -76,19 +79,43 @@ public:
 
 	void OnWebIRCAuth(LocalUser* user, const WebIRC::FlagMap* flags) override
 	{
-		if (!flags || !metaapi)
+		if (!flags)
+			return;
+
+		// Persist the flags we care about so we can apply them after the user is fully connected.
+		WebIRC::FlagMap filtered;
+		for (const auto& key : keys)
+		{
+			auto it = flags->find(key);
+			if (it != flags->end() && !it->second.empty())
+				filtered[key] = it->second;
+		}
+
+		if (!filtered.empty())
+			flagsext.Set(user, new WebIRC::FlagMap(std::move(filtered)));
+	}
+
+	void OnUserConnect(LocalUser* user, bool) override
+	{
+		if (!metaapi)
+			return;
+
+		WebIRC::FlagMap* flags = flagsext.Get(user);
+		if (!flags)
 			return;
 
 		for (const auto& key : keys)
 		{
 			auto it = flags->find(key);
-			if (it != flags->end() && !it->second.empty())
-			{
-				metaapi->SetKey(user, key, it->second);
-				ServerInstance->Logs.Debug(MODNAME, "Set metadata {}={} for user {}",
-					key, it->second, user->uuid);
-			}
+			if (it == flags->end() || it->second.empty())
+				continue;
+
+			metaapi->SetKey(user, key, it->second);
+			ServerInstance->Logs.Debug(MODNAME, "Set metadata {}={} for user {}",
+				key, it->second, user->uuid);
 		}
+
+		flagsext.Unset(user);
 	}
 
 	void OnUserDisconnect(LocalUser* user) override
@@ -98,6 +125,7 @@ public:
 
 		for (const auto& key : keys)
 			metaapi->UnsetKey(user, key);
+		flagsext.Unset(user);
 	}
 };
 
