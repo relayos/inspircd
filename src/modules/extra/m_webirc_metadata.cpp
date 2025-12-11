@@ -159,15 +159,13 @@ public:
 		if (!user)
 			return;
 
-		// Always clean up the extension item
-		flagsext.Unset(user);
+		// Extension item auto-cleans on user quit via SimpleExtItem destructor.
+		// Only manually unset if still present (OnUserConnect already unsets it).
+		if (flagsext.Get(user))
+			flagsext.Unset(user);
 
-		if (!EnsureAPI())
-			return;
-
-		// Only unset keys that are actually registered
-		for (const auto& key : registeredkeys)
-			metaapi->UnsetKey(user, key);
+		// Note: metadata keys are automatically cleaned up by ircv3_metadata
+		// when the user disconnects, no need to explicitly unset them.
 	}
 };
 

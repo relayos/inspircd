@@ -76,11 +76,12 @@ private:
 			return "";
 
 		std::string realname = user->GetRealName();
-		if (realname.empty())
-			return "";
+		if (realname.empty() || realname.length() > 512)
+			return "";  // Sanity check: realnames shouldn't be huge
 
 		rapidjson::Document doc;
-		if (doc.Parse(realname.c_str()).HasParseError() || !doc.IsObject())
+		doc.Parse(realname.c_str());
+		if (doc.HasParseError() || !doc.IsObject())
 			return "";
 
 		if (!doc.HasMember(gecoskey.c_str()))

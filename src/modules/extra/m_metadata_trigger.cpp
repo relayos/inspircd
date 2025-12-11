@@ -120,14 +120,14 @@ class TriggerTimer final
 	: public Timer
 {
 private:
-	LocalUser* const user;
+	const std::string uuid;  // Store UUID, not pointer - user may disconnect
 	const std::string action;
 	const std::string target;
 
 public:
 	TriggerTimer(LocalUser* u, const std::string& act, const std::string& tgt, unsigned int delay)
 		: Timer(delay, false)
-		, user(u)
+		, uuid(u->uuid)
 		, action(act)
 		, target(tgt)
 	{
@@ -136,7 +136,13 @@ public:
 
 	bool Tick() override
 	{
-		if (!user->IsFullyConnected())
+		// Look up user by UUID - they may have disconnected
+		User* u = ServerInstance->Users.FindUUID(uuid);
+		if (!u)
+			return false;  // User gone, nothing to do
+
+		LocalUser* user = IS_LOCAL(u);
+		if (!user || !user->IsFullyConnected())
 			return false;
 
 		ServerInstance->Logs.Debug("metadata_trigger", "Timer firing: action={} target={} user={}",
@@ -341,17 +347,20 @@ public:
 		ServerInstance->Logs.Debug(MODNAME, "OnPostConnect: user={}", localuser->nick);
 
 		// Execute any pending triggers
-		std::vector<PendingTrigger>* pending = pendingExt.GetAndClear(localuser);
-		if (pending)
-		{
-			ServerInstance->Logs.Debug(MODNAME, "Executing {} pending triggers for user={}",
-				pending->size(), localuser->nick);
+		std::vector<PendingTrigger>* pending = pendingExt.Get(localuser);
+		if (!pending || pending->empty())
+			return;
 
-			for (const auto& pt : *pending)
-			{
-				ExecuteAction(localuser, pt.action, pt.target, pt.delay);
-			}
-			pendingExt.Unset(localuser);
+		ServerInstance->Logs.Debug(MODNAME, "Executing {} pending triggers for user={}",
+			pending->size(), localuser->nick);
+
+		// Copy triggers and clear extension BEFORE executing (in case execution causes issues)
+		std::vector<PendingTrigger> toExecute = *pending;
+		pendingExt.Unset(localuser);
+
+		for (const auto& pt : toExecute)
+		{
+			ExecuteAction(localuser, pt.action, pt.target, pt.delay);
 		}
 	}
 };
