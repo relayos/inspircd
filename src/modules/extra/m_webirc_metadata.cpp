@@ -32,7 +32,40 @@ class ModuleWebIRCMetadata final
 private:
 	IRCv3::Metadata::API metaapi;
 	std::vector<std::string> keys;
+	std::set<std::string> registeredkeys;
 	SimpleExtItem<WebIRC::FlagMap> flagsext;
+	bool apiwarned = false;
+
+	bool EnsureAPI()
+	{
+		if (!metaapi)
+		{
+			if (!apiwarned)
+			{
+				ServerInstance->Logs.Warning(MODNAME, "The ircv3_metadata module must be loaded for this module to work.");
+				apiwarned = true;
+			}
+			return false;
+		}
+		return true;
+	}
+
+	void RegisterKey(const std::string& key)
+	{
+		if (!EnsureAPI())
+			return;
+
+		if (registeredkeys.count(key))
+			return;
+
+		IRCv3::Metadata::KeySpec spec;
+		spec.name = key;
+		spec.targets = IRCv3::Metadata::TARGET_USER;
+		spec.servicesonly = true;
+		metaapi->RegisterKey(this, spec);
+		registeredkeys.insert(key);
+		ServerInstance->Logs.Debug(MODNAME, "Registered metadata key: {}", key);
+	}
 
 public:
 	ModuleWebIRCMetadata()
@@ -56,63 +89,66 @@ public:
 			newkeys.push_back(key);
 		}
 
+		// Register all keys from config with the metadata API
+		for (const auto& key : newkeys)
+			RegisterKey(key);
+
 		keys.swap(newkeys);
-	}
 
-	void init() override
-	{
-		if (!metaapi)
-		{
-			ServerInstance->Logs.Warning(MODNAME, "The ircv3_metadata module must be loaded for this module to work.");
-			return;
-		}
-
-		for (const auto& key : keys)
-		{
-			IRCv3::Metadata::KeySpec spec;
-			spec.name = key;
-			spec.targets = IRCv3::Metadata::TARGET_USER;
-			spec.servicesonly = true;
-			metaapi->RegisterKey(this, spec);
-		}
+		ServerInstance->Logs.Debug(MODNAME, "Loaded {} webircmeta keys", keys.size());
 	}
 
 	void OnWebIRCAuth(LocalUser* user, const WebIRC::FlagMap* flags) override
 	{
-		if (!flags)
+		if (!user || !flags || flags->empty())
+			return;
+
+		if (keys.empty())
 			return;
 
 		// Persist the flags we care about so we can apply them after the user is fully connected.
-		WebIRC::FlagMap filtered;
+		WebIRC::FlagMap* filtered = new WebIRC::FlagMap();
 		for (const auto& key : keys)
 		{
 			auto it = flags->find(key);
 			if (it != flags->end() && !it->second.empty())
-				filtered[key] = it->second;
+				(*filtered)[key] = it->second;
 		}
 
-		if (!filtered.empty())
-			flagsext.Set(user, new WebIRC::FlagMap(std::move(filtered)));
+		if (filtered->empty())
+		{
+			delete filtered;
+			return;
+		}
+
+		flagsext.Set(user, filtered);
+		ServerInstance->Logs.Debug(MODNAME, "Stored {} WEBIRC flags for user {}",
+			filtered->size(), user->uuid);
 	}
 
 	void OnUserConnect(LocalUser* user) override
 	{
-		if (!metaapi)
+		if (!user)
+			return;
+
+		if (!EnsureAPI())
 			return;
 
 		WebIRC::FlagMap* flags = flagsext.Get(user);
 		if (!flags)
 			return;
 
-		for (const auto& key : keys)
+		for (const auto& [key, value] : *flags)
 		{
-			auto it = flags->find(key);
-			if (it == flags->end() || it->second.empty())
+			if (value.empty())
 				continue;
 
-			metaapi->SetKey(user, key, it->second);
+			// Ensure key is registered before setting
+			RegisterKey(key);
+
+			metaapi->SetKey(user, key, value);
 			ServerInstance->Logs.Debug(MODNAME, "Set metadata {}={} for user {}",
-				key, it->second, user->uuid);
+				key, value, user->uuid);
 		}
 
 		flagsext.Unset(user);
@@ -120,12 +156,18 @@ public:
 
 	void OnUserDisconnect(LocalUser* user) override
 	{
-		if (!metaapi)
+		if (!user)
 			return;
 
-		for (const auto& key : keys)
-			metaapi->UnsetKey(user, key);
+		// Always clean up the extension item
 		flagsext.Unset(user);
+
+		if (!EnsureAPI())
+			return;
+
+		// Only unset keys that are actually registered
+		for (const auto& key : registeredkeys)
+			metaapi->UnsetKey(user, key);
 	}
 };
 

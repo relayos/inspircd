@@ -1915,6 +1915,38 @@ class ModuleIRCv3Metadata final
 		return true;
 	}
 
+	std::string GetKey(User* user, const std::string& key) const override
+	{
+		if (!user || key.empty())
+			return "";
+
+		const MetadataKeyMap* map = store.Peek(user);
+		if (!map)
+			return "";
+
+		MetadataKeyMap::const_iterator it = map->find(key);
+		if (it == map->end())
+			return "";
+
+		return it->second.value;
+	}
+
+	std::string GetKey(Channel* chan, const std::string& key) const override
+	{
+		if (!chan || key.empty())
+			return "";
+
+		const MetadataKeyMap* map = store.Peek(chan);
+		if (!map)
+			return "";
+
+		MetadataKeyMap::const_iterator it = map->find(key);
+		if (it == map->end())
+			return "";
+
+		return it->second.value;
+	}
+
 	void OnUnloadModule(Module* mod) override
 	{
 		settings.RemoveKeysOwnedBy(mod);

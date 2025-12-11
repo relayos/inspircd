@@ -130,6 +130,20 @@ class EventListener
 		 * @return True if the key was unset successfully.
 		 */
 		virtual bool UnsetKey(Channel* chan, const std::string& key) = 0;
+
+		/** Get a metadata key from a user.
+		 * @param user The user to get metadata from.
+		 * @param key The metadata key name.
+		 * @return The value of the key, or empty string if not set.
+		 */
+		virtual std::string GetKey(User* user, const std::string& key) const = 0;
+
+		/** Get a metadata key from a channel.
+		 * @param chan The channel to get metadata from.
+		 * @param key The metadata key name.
+		 * @return The value of the key, or empty string if not set.
+		 */
+		virtual std::string GetKey(Channel* chan, const std::string& key) const = 0;
 	};
 
 class API final

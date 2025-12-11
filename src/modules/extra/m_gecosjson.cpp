@@ -40,6 +40,7 @@ private:
 	std::string usernamePattern;
 	std::string hashKey;
 	std::vector<std::string> stripFields;
+	bool verifyhash; // explicit toggle to disable verification when using m_connectionhash_verify
 
 	bool ShouldCheck(LocalUser* user) const
 	{
@@ -138,6 +139,8 @@ public:
 		mode = tag->getString("mode", "off");
 		usernamePattern = tag->getString("usernamepattern", "");
 		hashKey = tag->getString("hashkey", "ih");
+		// verifyhash: explicit toggle (default "yes" for backwards compat, set to "no" when using m_connectionhash_verify)
+		verifyhash = tag->getBool("verifyhash", true);
 
 		// Parse stripfields: comma-separated list or "*" for all
 		stripFields.clear();
@@ -172,7 +175,8 @@ public:
 		while (reader.GetToken(token))
 			classes.push_back(token);
 
-		ServerInstance->Logs.Debug(MODNAME, "Config: mode={} hashkey={} stripfields={}", mode, hashKey, tag->getString("stripfields", ""));
+		ServerInstance->Logs.Debug(MODNAME, "Config: mode={} hashkey={} stripfields={} verifyhash={}",
+			mode, hashKey, tag->getString("stripfields", ""), verifyhash ? "yes" : "no");
 	}
 
 	void OnUserConnect(LocalUser* user) override
@@ -191,18 +195,18 @@ public:
 		if (!realname.empty() && !doc.Parse(realname.c_str()).HasParseError() && doc.IsObject())
 			isJson = true;
 
-		// Verify based on mode
+		// Verify based on mode (only if verifyhash is enabled)
 		bool verified = true;
-		bool shouldEnforce = (mode != "off");
+		bool shouldEnforce = (mode != "off") && verifyhash;
 
-		if ((mode == "ident" || mode == "both" || mode == "off") && !salt.empty())
+		if (verifyhash && (mode == "ident" || mode == "both" || mode == "off") && !salt.empty())
 		{
 			verified = VerifyIdentHash(user);
 			if (mode == "off")
 				verified = true; // Don't actually fail in off mode
 		}
 
-		if ((mode == "realname" || mode == "both" || mode == "off") && !salt.empty() && isJson)
+		if (verifyhash && (mode == "realname" || mode == "both" || mode == "off") && !salt.empty() && isJson)
 		{
 			bool realnameVerified = VerifyRealnameHash(user, doc);
 			if (mode != "off")
@@ -210,7 +214,7 @@ public:
 				verified = verified && realnameVerified;
 			}
 		}
-		else if (mode == "realname" && !salt.empty() && !isJson)
+		else if (verifyhash && mode == "realname" && !salt.empty() && !isJson)
 		{
 			// Only fail if username matches the pattern (e.g., kiwi-user)
 			const std::string ident = user->GetDisplayedUser();
