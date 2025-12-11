@@ -213,6 +213,16 @@ public:
 			{
 				verified = verified && realnameVerified;
 			}
+
+			// Strip the hash field from the realname JSON after successful verification
+			if (realnameVerified && doc.HasMember(hashKey.c_str()))
+			{
+				doc.RemoveMember(hashKey.c_str());
+				rapidjson::StringBuffer buffer;
+				rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+				doc.Accept(writer);
+				user->ChangeRealName(buffer.GetString());
+			}
 		}
 		else if (verifyhash && mode == "realname" && !salt.empty() && !isJson)
 		{
