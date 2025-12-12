@@ -29,20 +29,7 @@ private:
 
 	void UpdateGeoMetadata(User* user)
 	{
-		if (!geoapi || !metaapi)
-			return;
-
-		Geolocation::Location* location = geoapi->GetLocation(user);
-		if (location)
-		{
-			metaapi->SetKey(user, "geo/country-code", location->GetCode());
-			metaapi->SetKey(user, "geo/country", location->GetName());
-		}
-		else
-		{
-			metaapi->UnsetKey(user, "geo/country-code");
-			metaapi->UnsetKey(user, "geo/country");
-		}
+		// No-op: geo metadata is sourced from WEBIRC; skip server-side geolocation.
 	}
 
 public:
@@ -55,23 +42,7 @@ public:
 
 	void init() override
 	{
-		if (!metaapi)
-		{
-			ServerInstance->Logs.Warning(MODNAME, "The ircv3_metadata module must be loaded for this module to work.");
-			return;
-		}
-
-		IRCv3::Metadata::KeySpec countrycode;
-		countrycode.name = "geo/country-code";
-		countrycode.targets = IRCv3::Metadata::TARGET_USER;
-		countrycode.servicesonly = true;
-		metaapi->RegisterKey(this, countrycode);
-
-		IRCv3::Metadata::KeySpec countryname;
-		countryname.name = "geo/country";
-		countryname.targets = IRCv3::Metadata::TARGET_USER;
-		countryname.servicesonly = true;
-		metaapi->RegisterKey(this, countryname);
+		// Disable server-side geo metadata population; rely on WEBIRC-provided tags.
 	}
 
 	void OnChangeRemoteAddress(LocalUser* user) override
@@ -87,11 +58,7 @@ public:
 
 	void OnUserDisconnect(LocalUser* user) override
 	{
-		if (metaapi)
-		{
-			metaapi->UnsetKey(user, "geo/country-code");
-			metaapi->UnsetKey(user, "geo/country");
-		}
+		// No-op: nothing to clean up; WEBIRC handles metadata lifecycle.
 	}
 };
 
