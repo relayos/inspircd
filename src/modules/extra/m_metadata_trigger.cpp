@@ -151,7 +151,7 @@ public:
 		if (action == "join")
 		{
 			if (ServerInstance->Channels.IsChannel(target))
-				Channel::JoinUser(user, target);
+				Channel::JoinUser(user, target, true); // override so +i/+l doesn't block
 		}
 		else if (action == "mode")
 		{
