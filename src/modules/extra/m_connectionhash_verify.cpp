@@ -29,6 +29,7 @@
 #include "extension.h"
 #include "modules/hash.h"
 #include "modules/webirc.h"
+#include "modules/ircv3_metadata.h"
 
 #include <rapidjson/document.h>
 
@@ -47,13 +48,16 @@ class ModuleConnectionHashVerify final
 private:
 	SimpleExtItem<VerifyState> verifystate;
 	StringExtItem webirchash;  // Store WEBIRC hash until IP is updated
+	IRCv3::Metadata::API metaapi;
 	HashProvider* hasher = nullptr;
 	std::string salt;
 	std::string webirckey;   // WEBIRC flag key (e.g., "connection/hash")
 	std::string gecoskey;    // GECOS JSON key (e.g., "ih")
 	std::string kickreason;
 	std::string mode;        // "webirc", "gecos", or "both"
+	std::string metakey;     // Metadata key for verified status (e.g., "connection/verified")
 	bool enabled = false;
+	bool metaregistered = false;
 
 	std::string GenerateHash(const std::string& ip) const
 	{
@@ -94,12 +98,32 @@ private:
 		return field.GetString();
 	}
 
+	void SetVerifiedMetadata(LocalUser* user, bool verified)
+	{
+		if (!metaapi || metakey.empty())
+			return;
+
+		// Register key on first use
+		if (!metaregistered)
+		{
+			IRCv3::Metadata::KeySpec spec;
+			spec.name = metakey;
+			spec.targets = IRCv3::Metadata::TARGET_USER;
+			spec.servicesonly = true;
+			metaapi->RegisterKey(this, spec);
+			metaregistered = true;
+		}
+
+		metaapi->SetKey(user, metakey, verified ? "yes" : "no");
+	}
+
 public:
 	ModuleConnectionHashVerify()
 		: Module(VF_VENDOR | VF_OPTCOMMON, "Verifies connection/hash from WEBIRC flags or GECOS JSON. Early rejection for anti-abuse.")
 		, WebIRC::EventListener(this)
 		, verifystate(this, "connhash-state", ExtensionType::USER)
 		, webirchash(this, "connhash-webirc", ExtensionType::USER)
+		, metaapi(this)
 	{
 	}
 
@@ -113,6 +137,7 @@ public:
 		gecoskey = tag->getString("gecoskey", "ih");
 		kickreason = tag->getString("reason", "Connection verification failed");
 		mode = tag->getString("mode", "webirc");
+		metakey = tag->getString("metakey", "connection/verified");
 		enabled = !salt.empty();
 
 		// Validate mode
@@ -125,7 +150,7 @@ public:
 		if (!enabled)
 			ServerInstance->Logs.Warning(MODNAME, "No salt configured, module disabled");
 		else
-			ServerInstance->Logs.Debug(MODNAME, "Config: mode={} webirckey={} gecoskey={}", mode, webirckey, gecoskey);
+			ServerInstance->Logs.Debug(MODNAME, "Config: mode={} webirckey={} gecoskey={} metakey={}", mode, webirckey, gecoskey, metakey);
 	}
 
 	// Store WEBIRC flags for later verification (IP isn't updated yet at this point)
@@ -221,12 +246,14 @@ public:
 		{
 			ServerInstance->Logs.Normal(MODNAME, "Hash verification failed for {} ({}) mode={}",
 				user->nick, user->GetAddress(), mode);
+			SetVerifiedMetadata(user, false);
 			ServerInstance->Users.QuitUser(user, kickreason);
 			return MOD_RES_DENY;
 		}
 
 		ServerInstance->Logs.Debug(MODNAME, "Hash verified for {} ({}) mode={}",
 			user->nick, user->GetAddress(), mode);
+		SetVerifiedMetadata(user, true);
 		return MOD_RES_PASSTHRU;
 	}
 
