@@ -3,7 +3,7 @@ FROM alpine:3.21 AS builder
 LABEL maintainer="RelayOS"
 
 ARG CONFIGUREARGS="--enable-extras=ssl_gnutls,m_gecosjson,m_tarpit,m_webirc_metadata,m_metadata_trigger,m_http_metrics,m_geo_metadata,m_connectionhash_verify,mysql"
-ARG BUILD_DEPENDENCIES="geoip-dev mariadb-dev pcre2-dev rapidjson-dev utfcpp-dev"
+ARG BUILD_DEPENDENCIES="geoip-dev mariadb-dev pcre2-dev rapidjson-dev utfcpp"
 
 RUN apk add --no-cache \
       bash \

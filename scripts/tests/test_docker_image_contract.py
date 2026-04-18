@@ -13,7 +13,7 @@ class DockerImageContractTests(unittest.TestCase):
     def test_dockerfile_installs_system_utfcpp_headers_for_websocket_module(self):
         content = Path("docker/Dockerfile").read_text()
 
-        self.assertIn('ARG BUILD_DEPENDENCIES="geoip-dev mariadb-dev pcre2-dev rapidjson-dev utfcpp-dev"', content)
+        self.assertIn('ARG BUILD_DEPENDENCIES="geoip-dev mariadb-dev pcre2-dev rapidjson-dev utfcpp"', content)
         self.assertIn('RUN make -j"$(getconf _NPROCESSORS_ONLN)" install CPPFLAGS=-DUSE_SYSTEM_UTFCPP', content)
 
     def test_entrypoint_requires_mounted_config(self):
