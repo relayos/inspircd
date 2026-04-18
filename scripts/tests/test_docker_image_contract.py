@@ -10,6 +10,12 @@ class DockerImageContractTests(unittest.TestCase):
         self.assertIn("COPY --chown=inspircd:inspircd docker/custom_entrypoint.sh /inspircd/custom_entrypoint.sh", content)
         self.assertIn('ENTRYPOINT ["/bin/sh", "/inspircd/custom_entrypoint.sh"]', content)
 
+    def test_dockerfile_installs_system_utfcpp_headers_for_websocket_module(self):
+        content = Path("docker/Dockerfile").read_text()
+
+        self.assertIn('ARG BUILD_DEPENDENCIES="geoip-dev mariadb-dev pcre2-dev rapidjson-dev utfcpp-dev"', content)
+        self.assertIn('RUN make -j"$(getconf _NPROCESSORS_ONLN)" install CPPFLAGS=-DUSE_SYSTEM_UTFCPP', content)
+
     def test_entrypoint_requires_mounted_config(self):
         content = Path("docker/custom_entrypoint.sh").read_text()
 
